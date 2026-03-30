@@ -1,7 +1,7 @@
-import { dashboardStore } from '@/lib/store/dashboard-store';
+import { dashboardService } from '@/lib/services/dashboard-service';
 
-export default function DashboardSocialPage() {
-  const items = dashboardStore.listSocialItems();
+export default async function DashboardSocialPage() {
+  const items = await dashboardService.listSocialItems();
 
   return (
     <main className="space-y-6 p-6">

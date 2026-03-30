@@ -1,7 +1,7 @@
-import { dashboardStore } from '@/lib/store/dashboard-store';
+import { dashboardService } from '@/lib/services/dashboard-service';
 
-export default function DashboardLinksPage() {
-  const links = dashboardStore.listLinks();
+export default async function DashboardLinksPage() {
+  const links = await dashboardService.listLinks();
 
   return (
     <main className="space-y-6 p-6">

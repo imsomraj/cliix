@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { writePageView } from "@/lib/analyticsStore";
+import { analyticsService } from "@/lib/services/analytics-service";
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
       ? body.page
       : request.nextUrl.pathname;
 
-  writePageView({
+  await analyticsService.writePageView({
     page,
     userId: body && typeof body.user_id === "string" ? body.user_id : undefined,
     timestamp:
