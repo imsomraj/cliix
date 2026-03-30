@@ -1,27 +1,47 @@
-import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
+import { restoreSupabaseSession } from '@/lib/supabase/server';
+
 const ADMIN_ROLE = 'admin';
+const UNAUTHORIZED_REDIRECT_PATH = '/dashboard';
 
 function normalizeRole(value: string | null | undefined): string {
   return (value ?? '').trim().toLowerCase();
 }
 
+type SessionUserWithRoleClaims = {
+  role?: string | null;
+  app_metadata?: { role?: string | null } | null;
+  user_metadata?: { role?: string | null } | null;
+};
+
+function resolveRoleFromClaims(user: SessionUserWithRoleClaims | null | undefined): string {
+  if (!user) {
+    return '';
+  }
+
+  return normalizeRole(
+    user.app_metadata?.role ??
+      user.user_metadata?.role ??
+      user.role,
+  );
+}
+
 export async function getCurrentRole(): Promise<string> {
-  const cookieStore = await cookies();
-  const headerStore = await headers();
+  const session = await restoreSupabaseSession();
 
-  const roleFromCookie = cookieStore.get('role')?.value;
-  const roleFromHeader = headerStore.get('x-user-role');
+  if (!session?.user) {
+    return '';
+  }
 
-  return normalizeRole(roleFromCookie ?? roleFromHeader);
+  return resolveRoleFromClaims(session.user as SessionUserWithRoleClaims);
 }
 
 export async function assertAdminAccess(): Promise<void> {
   const role = await getCurrentRole();
 
   if (role !== ADMIN_ROLE) {
-    redirect('/');
+    redirect(UNAUTHORIZED_REDIRECT_PATH);
   }
 }
 
