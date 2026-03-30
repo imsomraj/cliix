@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { writeClick } from "@/lib/analyticsStore";
+import { analyticsService } from "@/lib/services/analytics-service";
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
       ? body.timestamp
       : new Date().toISOString();
 
-  writeClick({
+  await analyticsService.writeClick({
     linkId: body.link_id,
     userId: typeof body.user_id === "string" ? body.user_id : undefined,
     timestamp,

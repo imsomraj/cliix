@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { getAnalyticsSummary } from "@/lib/analyticsStore";
+import { analyticsService } from "@/lib/services/analytics-service";
 
 export async function GET() {
-  const summary = getAnalyticsSummary();
+  const summary = await analyticsService.getSummary();
 
   return NextResponse.json(summary);
 }

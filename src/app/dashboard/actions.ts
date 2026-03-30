@@ -12,16 +12,16 @@ import {
   updateLinkSchema,
   updateSocialItemSchema,
 } from '@/lib/validation/dashboard';
-import { dashboardStore } from '@/lib/store/dashboard-store';
+import { dashboardService } from '@/lib/services/dashboard-service';
 
 export async function createLinkAction(input: unknown) {
   const payload = createLinkSchema.parse(input);
-  return dashboardStore.createLink(payload);
+  return dashboardService.createLink(payload);
 }
 
 export async function updateLinkAction(input: unknown) {
   const payload = updateLinkSchema.parse(input);
-  const updated = dashboardStore.updateLink(payload.id, payload);
+  const updated = await dashboardService.updateLink(payload.id, payload);
 
   if (!updated) {
     throw new Error('Link not found');
@@ -32,7 +32,7 @@ export async function updateLinkAction(input: unknown) {
 
 export async function deleteLinkAction(input: unknown) {
   const payload = deleteLinkSchema.parse(input);
-  const deleted = dashboardStore.deleteLink(payload.id);
+  const deleted = await dashboardService.deleteLink(payload.id);
 
   if (!deleted) {
     throw new Error('Link not found');
@@ -43,12 +43,12 @@ export async function deleteLinkAction(input: unknown) {
 
 export async function reorderLinksAction(input: unknown) {
   const payload = reorderLinksSchema.parse(input);
-  return dashboardStore.reorderLinks(payload.items);
+  return dashboardService.reorderLinks(payload.items);
 }
 
 export async function setLinkEnabledAction(input: unknown) {
   const payload = setLinkEnabledSchema.parse(input);
-  const link = dashboardStore.setLinkEnabled(payload.id, payload.isEnabled);
+  const link = await dashboardService.setLinkEnabled(payload.id, payload.isEnabled);
 
   if (!link) {
     throw new Error('Link not found');
@@ -59,12 +59,12 @@ export async function setLinkEnabledAction(input: unknown) {
 
 export async function createSocialItemAction(input: unknown) {
   const payload = createSocialItemSchema.parse(input);
-  return dashboardStore.createSocialItem(payload);
+  return dashboardService.createSocialItem(payload);
 }
 
 export async function updateSocialItemAction(input: unknown) {
   const payload = updateSocialItemSchema.parse(input);
-  const updated = dashboardStore.updateSocialItem(payload.id, payload);
+  const updated = await dashboardService.updateSocialItem(payload.id, payload);
 
   if (!updated) {
     throw new Error('Social item not found');
@@ -75,7 +75,7 @@ export async function updateSocialItemAction(input: unknown) {
 
 export async function deleteSocialItemAction(input: unknown) {
   const payload = deleteSocialItemSchema.parse(input);
-  const deleted = dashboardStore.deleteSocialItem(payload.id);
+  const deleted = await dashboardService.deleteSocialItem(payload.id);
 
   if (!deleted) {
     throw new Error('Social item not found');
@@ -86,12 +86,12 @@ export async function deleteSocialItemAction(input: unknown) {
 
 export async function reorderSocialItemsAction(input: unknown) {
   const payload = reorderSocialItemsSchema.parse(input);
-  return dashboardStore.reorderSocialItems(payload.items);
+  return dashboardService.reorderSocialItems(payload.items);
 }
 
 export async function setSocialItemEnabledAction(input: unknown) {
   const payload = setSocialItemEnabledSchema.parse(input);
-  const item = dashboardStore.setSocialItemEnabled(payload.id, payload.isEnabled);
+  const item = await dashboardService.setSocialItemEnabled(payload.id, payload.isEnabled);
 
   if (!item) {
     throw new Error('Social item not found');
