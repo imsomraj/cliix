@@ -1,17 +1,12 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+
+import type { PublicProfile } from "@/lib/public-profile";
 
 type PageProps = {
   params: {
     username: string;
   };
-};
-
-type PublicProfile = {
-  username: string;
-  displayName?: string | null;
-  bio?: string | null;
-  avatarUrl?: string | null;
-  socialImageUrl?: string | null;
 };
 
 const APP_NAME = "Cliix";
@@ -39,9 +34,8 @@ async function getPublicProfile(username: string): Promise<PublicProfile | null>
       }
     );
 
-    if (!response.ok) {
-      return null;
-    }
+    if (response.status === 404) return null;
+    if (!response.ok) throw new Error(`profile fetch failed (${response.status})`);
 
     const payload = (await response.json()) as PublicProfile;
     return payload;
@@ -109,9 +103,13 @@ export default async function UserProfilePage({ params }: PageProps) {
   const safeUsername = username || "unknown";
   const profile = await getPublicProfile(safeUsername);
 
-  const heading = profile?.displayName?.trim() || `@${safeUsername}`;
-  const description = profile?.bio?.trim() || DEFAULT_DESCRIPTION;
-  const avatar = profile?.avatarUrl || "/images/default-avatar.png";
+  if (!profile) {
+    notFound();
+  }
+
+  const heading = profile.displayName.trim() || `@${profile.username}`;
+  const description = profile.bio?.trim() || DEFAULT_DESCRIPTION;
+  const avatar = profile.avatarUrl || "/images/default-avatar.png";
 
   return (
     <main>
@@ -127,13 +125,51 @@ export default async function UserProfilePage({ params }: PageProps) {
           <dl>
             <div>
               <dt>Username</dt>
-              <dd>@{safeUsername}</dd>
+              <dd>@{profile.username}</dd>
             </div>
             <div>
               <dt>Status</dt>
-              <dd>{profile ? "Active profile" : "Profile preview"}</dd>
+              <dd>Active profile</dd>
+            </div>
+            <div>
+              <dt>Theme</dt>
+              <dd>{profile.theme.name}</dd>
             </div>
           </dl>
+        </section>
+
+        <section aria-labelledby="profile-links">
+          <h2 id="profile-links">Links</h2>
+          {profile.links.length === 0 ? (
+            <p>No links available.</p>
+          ) : (
+            <ul>
+              {profile.links.map((link) => (
+                <li key={link.id}>
+                  <a href={link.url} target="_blank" rel="noreferrer">
+                    {link.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section aria-labelledby="profile-socials">
+          <h2 id="profile-socials">Socials</h2>
+          {profile.socials.length === 0 ? (
+            <p>No social profiles available.</p>
+          ) : (
+            <ul>
+              {profile.socials.map((social) => (
+                <li key={social.id}>
+                  <a href={social.url} target="_blank" rel="noreferrer">
+                    {social.platform}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       </article>
     </main>
