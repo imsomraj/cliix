@@ -232,3 +232,102 @@ export async function upsertProfile(input: {
 
   return Array.isArray(payload) ? payload[0] : payload;
 }
+
+export type UserProfile = {
+  id: string;
+  username: string;
+  display_name: string;
+  bio: string | null;
+  avatar: string | null;
+};
+
+export async function getProfileByUserId(userId: string): Promise<UserProfile | null> {
+  const tokens = await getSessionTokens();
+
+  if (!tokens.accessToken) {
+    throw new Error('Missing session. Please log in again.');
+  }
+
+  const encodedUserId = encodeURIComponent(userId);
+  const response = await fetchSupabase(
+    `/rest/v1/profiles?id=eq.${encodedUserId}&select=id,username,display_name,bio,avatar&limit=1`,
+    {
+      headers: authHeaders(tokens.accessToken),
+    },
+  );
+
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(asErrorMessage(response, payload));
+  }
+
+  if (!Array.isArray(payload) || payload.length === 0) {
+    return null;
+  }
+
+  return payload[0] as UserProfile;
+}
+
+export async function isUsernameTaken(username: string, excludeUserId?: string): Promise<boolean> {
+  const tokens = await getSessionTokens();
+
+  if (!tokens.accessToken) {
+    throw new Error('Missing session. Please log in again.');
+  }
+
+  const encodedUsername = encodeURIComponent(username);
+  const response = await fetchSupabase(
+    `/rest/v1/profiles?username=eq.${encodedUsername}&select=id&limit=1`,
+    {
+      headers: authHeaders(tokens.accessToken),
+    },
+  );
+
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(asErrorMessage(response, payload));
+  }
+
+  const profile = Array.isArray(payload) && payload.length > 0 ? (payload[0] as { id?: string }) : null;
+
+  if (!profile?.id) {
+    return false;
+  }
+
+  return profile.id !== excludeUserId;
+}
+
+export async function uploadProfileAvatar(input: { userId: string; file: File }): Promise<{ path: string; publicUrl: string }> {
+  const tokens = await getSessionTokens();
+
+  if (!tokens.accessToken) {
+    throw new Error('Missing session. Please log in again.');
+  }
+
+  const { url } = assertSupabaseConfig();
+  const extension = input.file.name.split('.').pop()?.toLowerCase() || 'bin';
+  const path = `profiles/${input.userId}/avatar.${extension}`;
+  const uploadUrl = `${url}/storage/v1/object/avatars/${path}`;
+
+  const uploadResponse = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: {
+      [AUTH_HEADER_KEY]: assertSupabaseConfig().anonKey,
+      Authorization: `Bearer ${tokens.accessToken}`,
+      'x-upsert': 'true',
+      'Content-Type': input.file.type || 'application/octet-stream',
+    },
+    body: await input.file.arrayBuffer(),
+  });
+
+  const uploadPayload = await uploadResponse.json().catch(() => ({}));
+
+  if (!uploadResponse.ok) {
+    throw new Error(asErrorMessage(uploadResponse, uploadPayload));
+  }
+
+  const publicUrl = `${url}/storage/v1/object/public/avatars/${path}`;
+  return { path, publicUrl };
+}
