@@ -26,41 +26,36 @@ function getBaseUrl(): string {
 async function getPublicProfile(username: string): Promise<PublicProfile | null> {
   const baseUrl = getBaseUrl();
 
-  try {
-    const response = await fetch(
-      `${baseUrl}/api/users/${encodeURIComponent(username)}/public`,
-      {
-        next: { revalidate: 300 },
-      }
-    );
+  const response = await fetch(`${baseUrl}/api/users/${encodeURIComponent(username)}/public`, {
+    cache: "no-store",
+  });
 
-    if (response.status === 404) return null;
-    if (!response.ok) throw new Error(`profile fetch failed (${response.status})`);
-
-    const payload = (await response.json()) as PublicProfile;
-    return payload;
-  } catch {
-    return null;
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(`profile fetch failed (${response.status})`);
   }
+
+  return (await response.json()) as PublicProfile;
 }
 
-function buildProfileMetadata(
-  username: string,
-  profile: PublicProfile | null
-): Metadata {
+function buildProfileMetadata(username: string, profile: PublicProfile | null): Metadata {
   const baseUrl = getBaseUrl();
   const canonicalPath = `/${encodeURIComponent(username)}`;
   const canonicalUrl = `${baseUrl}${canonicalPath}`;
 
-  const name = profile?.displayName?.trim() || `@${username}`;
-  const title = `${name} | ${APP_NAME}`;
+  const seoName = profile?.seo.displayName?.trim() || profile?.displayName?.trim() || `@${username}`;
+  const title = `${seoName} | ${APP_NAME}`;
 
   const description =
+    profile?.seo.bio?.trim() ||
     profile?.bio?.trim() ||
-    `View ${name}'s links, latest content, and profile details on ${APP_NAME}.`;
+    `View ${seoName}'s links, latest content, and profile details on ${APP_NAME}.`;
 
   const socialImage =
-    profile?.socialImageUrl || profile?.avatarUrl || `${baseUrl}${DEFAULT_SOCIAL_IMAGE_PATH}`;
+    profile?.seo.socialImageUrl ||
+    profile?.socialImageUrl ||
+    profile?.avatarUrl ||
+    `${baseUrl}${DEFAULT_SOCIAL_IMAGE_PATH}`;
 
   return {
     title,
@@ -77,7 +72,7 @@ function buildProfileMetadata(
       images: [
         {
           url: socialImage,
-          alt: `${name} profile preview image`,
+          alt: `${seoName} profile preview image`,
         },
       ],
     },
@@ -92,16 +87,23 @@ function buildProfileMetadata(
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const username = decodeURIComponent(params.username).trim();
-  const safeUsername = username || "unknown";
-  const profile = await getPublicProfile(safeUsername);
 
-  return buildProfileMetadata(safeUsername, profile);
+  if (!username) {
+    return buildProfileMetadata("unknown", null);
+  }
+
+  const profile = await getPublicProfile(username);
+  return buildProfileMetadata(username, profile);
 }
 
 export default async function UserProfilePage({ params }: PageProps) {
   const username = decodeURIComponent(params.username).trim();
-  const safeUsername = username || "unknown";
-  const profile = await getPublicProfile(safeUsername);
+
+  if (!username) {
+    notFound();
+  }
+
+  const profile = await getPublicProfile(username);
 
   if (!profile) {
     notFound();
