@@ -15,7 +15,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
     return NextResponse.json({ error: "username is required" }, { status: 400 });
   }
 
-  const profile = getPublicProfileByUsername(username);
+  const profile = await getPublicProfileByUsername(username);
 
   if (!profile) {
     return NextResponse.json({ error: "profile not found" }, { status: 404 });
