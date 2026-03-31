@@ -21,13 +21,19 @@ export type PageViewEvent = {
   device?: DeviceInfo;
 };
 
-type ClickRow = {
-  link_id: string;
-  occurred_at: string;
+type SummaryTotalsRow = {
+  total_views: number;
+  total_clicks: number;
 };
 
-type PageviewRow = {
-  occurred_at: string;
+type SummaryPerLinkRow = {
+  link_id: string;
+  clicks: number;
+};
+
+type SummaryDailyRow = {
+  date: string;
+  clicks: number;
 };
 
 const useInMemoryMocks = process.env.ENABLE_LOCAL_INMEMORY_MOCKS === 'true' && process.env.NODE_ENV !== 'production';
@@ -55,10 +61,11 @@ export const analyticsRepository = {
     }
 
     await postgrestRequest<unknown>({
-      path: '/analytics_clicks',
+      path: '/analytics_events',
       method: 'POST',
       body: [
         {
+          event_type: 'click',
           link_id: event.linkId,
           user_id: event.userId ?? null,
           occurred_at: event.timestamp,
@@ -77,10 +84,11 @@ export const analyticsRepository = {
     }
 
     await postgrestRequest<unknown>({
-      path: '/analytics_pageviews',
+      path: '/analytics_events',
       method: 'POST',
       body: [
         {
+          event_type: 'pageview',
           page: event.page,
           user_id: event.userId ?? null,
           occurred_at: event.timestamp,
@@ -92,22 +100,25 @@ export const analyticsRepository = {
     });
   },
 
-  async getSummary() {
+  async getSummary(userId?: string, accessToken?: string) {
     if (useInMemoryMocks) {
-      const clicksByLink = localState.clicks.reduce<Record<string, number>>((acc, click) => {
+      const scopedClicks = userId ? localState.clicks.filter((click) => click.userId === userId) : localState.clicks;
+      const scopedPageviews = userId ? localState.pageviews.filter((view) => view.userId === userId) : localState.pageviews;
+
+      const clicksByLink = scopedClicks.reduce<Record<string, number>>((acc, click) => {
         acc[click.linkId] = (acc[click.linkId] ?? 0) + 1;
         return acc;
       }, {});
 
-      const daily = localState.clicks.reduce<Record<string, number>>((acc, click) => {
+      const daily = scopedClicks.reduce<Record<string, number>>((acc, click) => {
         const day = click.timestamp.slice(0, 10);
         acc[day] = (acc[day] ?? 0) + 1;
         return acc;
       }, {});
 
       return {
-        totalViews: localState.pageviews.length,
-        totalClicks: localState.clicks.length,
+        totalViews: scopedPageviews.length,
+        totalClicks: scopedClicks.length,
         perLink: Object.entries(clicksByLink)
           .map(([linkId, clicks]) => ({ linkId, clicks }))
           .sort((a, b) => b.clicks - a.clicks),
@@ -117,31 +128,46 @@ export const analyticsRepository = {
       };
     }
 
-    const [clickRows, pageviewRows] = await Promise.all([
-      postgrestRequest<ClickRow[]>({ path: '/analytics_clicks?select=link_id,occurred_at' }),
-      postgrestRequest<PageviewRow[]>({ path: '/analytics_pageviews?select=occurred_at' }),
+    const [totalsRows, perLinkRows, dailyRows] = await Promise.all([
+      postgrestRequest<SummaryTotalsRow[]>({
+        path: `/rpc/analytics_summary_totals`,
+        method: 'POST',
+        accessToken,
+        body: {
+          p_user_id: userId ?? null,
+        },
+      }),
+      postgrestRequest<SummaryPerLinkRow[]>({
+        path: '/rpc/analytics_summary_per_link',
+        method: 'POST',
+        accessToken,
+        body: {
+          p_user_id: userId ?? null,
+        },
+      }),
+      postgrestRequest<SummaryDailyRow[]>({
+        path: '/rpc/analytics_summary_daily',
+        method: 'POST',
+        accessToken,
+        body: {
+          p_user_id: userId ?? null,
+        },
+      }),
     ]);
 
-    const clicksByLink = clickRows.reduce<Record<string, number>>((acc, click) => {
-      acc[click.link_id] = (acc[click.link_id] ?? 0) + 1;
-      return acc;
-    }, {});
-
-    const daily = clickRows.reduce<Record<string, number>>((acc, click) => {
-      const day = click.occurred_at.slice(0, 10);
-      acc[day] = (acc[day] ?? 0) + 1;
-      return acc;
-    }, {});
+    const totals = totalsRows[0] ?? { total_views: 0, total_clicks: 0 };
 
     return {
-      totalViews: pageviewRows.length,
-      totalClicks: clickRows.length,
-      perLink: Object.entries(clicksByLink)
-        .map(([linkId, clicks]) => ({ linkId, clicks }))
-        .sort((a, b) => b.clicks - a.clicks),
-      daily: Object.entries(daily)
-        .map(([date, clicks]) => ({ date, clicks }))
-        .sort((a, b) => a.date.localeCompare(b.date)),
+      totalViews: totals.total_views,
+      totalClicks: totals.total_clicks,
+      perLink: perLinkRows.map((row) => ({
+        linkId: row.link_id,
+        clicks: row.clicks,
+      })),
+      daily: dailyRows.map((row) => ({
+        date: row.date,
+        clicks: row.clicks,
+      })),
     };
   },
 };
